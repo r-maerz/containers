@@ -7,7 +7,7 @@
 # shellcheck disable=SC1091
 
 # Load Generic Libraries
-. /opt/bitnami/scripts/libos.sh
+. /opt/openldap/scripts/libos.sh
 
 # Functions
 

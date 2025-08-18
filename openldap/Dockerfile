@@ -37,23 +37,23 @@ RUN --mount=type=secret,id=downloads_url,env=SECRET_DOWNLOADS_URL \
         curl -SsLf "https://${DOWNLOADS_URL}/${COMPONENT}.tar.gz.sha256" -O ; \
       fi ; \
       sha256sum -c "${COMPONENT}.tar.gz.sha256" ; \
-      tar -zxf "${COMPONENT}.tar.gz" -C /opt/bitnami --strip-components=2 --no-same-owner ; \
+      tar -zxf "${COMPONENT}.tar.gz" -C /opt/openldap --strip-components=2 --no-same-owner ; \
       rm -rf "${COMPONENT}".tar.gz{,.sha256} ; \
     done
 RUN apt-get update && apt-get upgrade -y && \
     apt-get clean && rm -rf /var/lib/apt/lists /var/cache/apt/archives
-RUN chmod g+rwX /opt/bitnami
+RUN chmod g+rwX /opt/openldap
 RUN find / -perm /6000 -type f -exec chmod a-s {} \; || true
 RUN uninstall_packages curl
 
 COPY rootfs /
-RUN /opt/bitnami/scripts/openldap/postunpack.sh
+RUN /opt/openldap/scripts/openldap/postunpack.sh
 ENV APP_VERSION="2.6.10" \
     BITNAMI_APP_NAME="openldap" \
-    PATH="/opt/bitnami/openldap/bin:/opt/bitnami/openldap/sbin:$PATH"
+    PATH="/opt/openldap/openldap/bin:/opt/openldap/openldap/sbin:$PATH"
 
 EXPOSE 1389 1636
 
 USER 1001
-ENTRYPOINT [ "/opt/bitnami/scripts/openldap/entrypoint.sh" ]
-CMD [ "/opt/bitnami/scripts/openldap/run.sh" ]
+ENTRYPOINT [ "/opt/openldap/scripts/openldap/entrypoint.sh" ]
+CMD [ "/opt/openldap/scripts/openldap/run.sh" ]
