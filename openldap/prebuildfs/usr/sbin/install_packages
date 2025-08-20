@@ -5,13 +5,12 @@ set -eu
 
 n=0
 max=2
-export DEBIAN_FRONTEND=noninteractive
 
 until [ $n -gt $max ]; do
     set +e
     (
-      apt-get update -qq &&
-      apt-get install -y --no-install-recommends "$@"
+      apk update &&
+      apk add --no-cache "$@"
     )
     CODE=$?
     set -e
@@ -24,4 +23,4 @@ until [ $n -gt $max ]; do
     echo "apt failed, retrying"
     n=$(($n + 1))
 done
-apt-get clean && rm -rf /var/lib/apt/lists /var/cache/apt/archives
+rm -rf /var/cache/apk/*

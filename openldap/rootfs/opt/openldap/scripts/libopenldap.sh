@@ -27,16 +27,15 @@ ldap_env() {
     cat << "EOF"
 # Paths
 export LDAP_BASE_DIR="/opt/openldap/openldap"
-export LDAP_BIN_DIR="${LDAP_BASE_DIR}/bin"
-export LDAP_SBIN_DIR="${LDAP_BASE_DIR}/sbin"
-export LDAP_CONF_DIR="${LDAP_BASE_DIR}/etc"
-export LDAP_SHARE_DIR="${LDAP_BASE_DIR}/share"
-export LDAP_VAR_DIR="${LDAP_BASE_DIR}/var"
-export LDAP_VOLUME_DIR="/bitnami/openldap"
-export LDAP_DATA_DIR="${LDAP_VOLUME_DIR}/data"
+export LDAP_BIN_DIR="/usr/bin"
+export LDAP_SBIN_DIR="/usr/sbin"
+export LDAP_CONF_DIR="/etc/openldap"
+export LDAP_SHARE_DIR="/usr/share/openldap"
+export LDAP_VAR_DIR="/var/lib/openldap"
+export LDAP_DATA_DIR="${LDAP_VAR_DIR}/openldap-data"
 export LDAP_ACCESSLOG_DATA_DIR="${LDAP_DATA_DIR}/accesslog"
-export LDAP_ONLINE_CONF_DIR="${LDAP_VOLUME_DIR}/slapd.d"
-export LDAP_PID_FILE="${LDAP_VAR_DIR}/run/slapd.pid"
+export LDAP_ONLINE_CONF_DIR="/etc/openldap/slapd.d"
+export LDAP_PID_FILE="/run/openldap/slapd.pid"
 export LDAP_CUSTOM_LDIF_DIR="${LDAP_CUSTOM_LDIF_DIR:-/ldifs}"
 export LDAP_CUSTOM_SCHEMA_FILE="${LDAP_CUSTOM_SCHEMA_FILE:-/schema/custom.ldif}"
 export LDAP_CUSTOM_SCHEMA_DIR="${LDAP_CUSTOM_SCHEMA_DIR:-/schemas}"
@@ -47,8 +46,8 @@ export LDAP_TLS_CA_FILE="${LDAP_TLS_CA_FILE:-}"
 export LDAP_TLS_VERIFY_CLIENTS="${LDAP_TLS_VERIFY_CLIENTS:-never}"
 export LDAP_TLS_DH_PARAMS_FILE="${LDAP_TLS_DH_PARAMS_FILE:-}"
 # Users
-export LDAP_DAEMON_USER="slapd"
-export LDAP_DAEMON_GROUP="slapd"
+export LDAP_DAEMON_USER="ldap"
+export LDAP_DAEMON_GROUP="ldap"
 # Settings
 export LDAP_PORT_NUMBER="${LDAP_PORT_NUMBER:-1389}"
 export LDAP_LDAPS_PORT_NUMBER="${LDAP_LDAPS_PORT_NUMBER:-1636}"
@@ -300,8 +299,8 @@ ldap_create_slapd_file() {
 dn: cn=config
 objectClass: olcGlobal
 cn: config
-olcArgsFile: /opt/openldap/openldap/var/run/slapd.args
-olcPidFile: /opt/openldap/openldap/var/run/slapd.pid
+olcArgsFile: /run/openldap/slapd.args
+olcPidFile: $LDAP_PID_FILE
 
 #
 # Enable pw-sha2 module
@@ -309,7 +308,7 @@ olcPidFile: /opt/openldap/openldap/var/run/slapd.pid
 dn: cn=module,cn=config
 cn: module
 objectClass: olcModuleList
-olcModulePath: /opt/openldap/openldap/libexec/openldap
+olcModulePath: /usr/lib/openldap
 olcModuleLoad: pw-sha2.so
 
 #
@@ -320,7 +319,7 @@ dn: cn=schema,cn=config
 objectClass: olcSchemaConfig
 cn: schema
 
-include: file:///opt/openldap/openldap/etc/schema/core.ldif
+include: file:///etc/openldap/schema/core.ldif
 
 #
 # Frontend settings
@@ -361,7 +360,7 @@ olcDbMaxSize: 1073741824
 olcSuffix: dc=my-domain,dc=com
 olcRootDN: cn=Manager,dc=my-domain,dc=com
 olcMonitoring: FALSE
-olcDbDirectory:	/bitnami/openldap/data
+olcDbDirectory:	/var/lib/openldap/openldap-data
 olcDbIndex: objectClass eq,pres
 olcDbIndex: ou,cn,mail,surname,givenname eq,pres,sub
 EOF
@@ -816,7 +815,7 @@ EOF
 #########################
 ldap_configure_ppolicy() {
     info "Configuring LDAP ppolicy"
-    ldap_load_module "/opt/openldap/openldap/lib/openldap" "ppolicy.so"
+    ldap_load_module "/usr/lib/openldap" "ppolicy.so"
     # create configuration
     cat > "${LDAP_SHARE_DIR}/ppolicy_create_configuration.ldif" << EOF
 dn: olcOverlay={0}ppolicy,olcDatabase={2}mdb,cn=config
@@ -892,7 +891,7 @@ olcDbIndex: entryUUID eq
 EOF
     debug_execute ldapmodify -Y EXTERNAL -H "ldapi:///" -f "${LDAP_SHARE_DIR}/accesslog_add_indexes.ldif"
     # Load module
-    ldap_load_module "/opt/openldap/openldap/lib/openldap" "accesslog.so"
+    ldap_load_module "/usr/lib/openldap" "accesslog.so"
     # Create AccessLog database
     cat > "${LDAP_SHARE_DIR}/accesslog_create_accesslog_database.ldif" << EOF
 dn: olcDatabase={3}mdb,cn=config
@@ -906,7 +905,7 @@ olcRootPW: $LDAP_ENCRYPTED_ACCESSLOG_ADMIN_PASSWORD
 olcDbIndex: default eq
 olcDbIndex: entryCSN,objectClass,reqEnd,reqResult,reqStart
 EOF
-    mkdir /bitnami/openldap/data/accesslog
+    mkdir $LDAP_ACCESSLOG_DATA_DIR
     debug_execute ldapadd -Q -Y EXTERNAL -H "ldapi:///" -f "${LDAP_SHARE_DIR}/accesslog_create_accesslog_database.ldif"
     # Add AccessLog overlay
     cat > "${LDAP_SHARE_DIR}/accesslog_create_overlay_configuration.ldif" << EOF
@@ -937,7 +936,7 @@ EOF
 ldap_enable_syncprov() {
     info "Configure Sync Provider"
     # Load module
-    ldap_load_module "/opt/openldap/openldap/lib/openldap" "syncprov.so"
+    ldap_load_module "/usr/lib/openldap" "syncprov.so"
     # Add Sync Provider overlay
     cat > "${LDAP_SHARE_DIR}/syncprov_create_overlay_configuration.ldif" << EOF
 dn: olcOverlay=syncprov,olcDatabase={2}mdb,cn=config
