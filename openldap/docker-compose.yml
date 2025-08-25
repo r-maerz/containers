@@ -3,7 +3,10 @@
 
 services:
   openldap:
-    image: docker.io/bitnami/openldap:2.6
+    container_name: openldap
+    build:
+      dockerfile: Dockerfile
+    image: r-maerz/openldap:2.6.10
     ports:
       - '1389:1389'
       - '1636:1636'
@@ -13,8 +16,4 @@ services:
       - LDAP_USERS=user01,user02
       - LDAP_PASSWORDS=password1,password2
     volumes:
-      - 'openldap_data:/bitnami/openldap'
-
-volumes:
-  openldap_data:
-    driver: local
+      - './data:/var/lib/openldap/openldap-data'

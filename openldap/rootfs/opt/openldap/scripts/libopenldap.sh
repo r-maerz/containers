@@ -36,6 +36,7 @@ export LDAP_DATA_DIR="${LDAP_VAR_DIR}/openldap-data"
 export LDAP_ACCESSLOG_DATA_DIR="${LDAP_DATA_DIR}/accesslog"
 export LDAP_ONLINE_CONF_DIR="/etc/openldap/slapd.d"
 export LDAP_PID_FILE="/run/openldap/slapd.pid"
+export LDAP_IPC_URL="ldapi:///"
 export LDAP_CUSTOM_LDIF_DIR="${LDAP_CUSTOM_LDIF_DIR:-/ldifs}"
 export LDAP_CUSTOM_SCHEMA_FILE="${LDAP_CUSTOM_SCHEMA_FILE:-/schema/custom.ldif}"
 export LDAP_CUSTOM_SCHEMA_DIR="${LDAP_CUSTOM_SCHEMA_DIR:-/schemas}"
@@ -236,7 +237,7 @@ is_ldap_not_running() {
 ldap_start_bg() {
     local -r retries="${1:-12}"
     local -r sleep_time="${2:-1}"
-    local -a flags=("-h" "ldap://:${LDAP_PORT_NUMBER}/ ldapi:/// " "-F" "${LDAP_CONF_DIR}/slapd.d" "-d" "$LDAP_LOGLEVEL")
+    local -a flags=("-h" "ldap://:${LDAP_PORT_NUMBER}/ ${LDAP_IPC_URL}" "-F" "${LDAP_CONF_DIR}/slapd.d" "-d" "$LDAP_LOGLEVEL")
 
     if is_ldap_not_running; then
         info "Starting OpenLDAP server in background"
@@ -301,6 +302,15 @@ objectClass: olcGlobal
 cn: config
 olcArgsFile: /run/openldap/slapd.args
 olcPidFile: $LDAP_PID_FILE
+
+#
+# Load dynamic backend modules:
+#
+dn: cn=module,cn=config
+objectClass: olcModuleList
+cn: module
+olcModulepath:  /usr/lib/openldap
+olcModuleload:  back_mdb.so
 
 #
 # Enable pw-sha2 module
@@ -380,7 +390,9 @@ ldap_create_online_configuration() {
     info "Creating LDAP online configuration"
 
     ldap_create_slapd_file
-    ! am_i_root && replace_in_file "${LDAP_SHARE_DIR}/slapd.ldif" "uidNumber=0" "uidNumber=$(id -u)"
+    ! am_i_root && replace_in_file "${LDAP_SHARE_DIR}/slapd.ldif" "uidNumber=0" "uidNumber=$(id -u ${LDAP_DAEMON_USER})"
+    ! am_i_root && replace_in_file "${LDAP_SHARE_DIR}/slapd.ldif" "gidNumber=0" "gidNumber=$(id -g ${LDAP_DAEMON_GROUP})"
+    cat "${LDAP_SHARE_DIR}/slapd.ldif" > "/etc/openldap/slapd.ldif"
     local -a flags=(-F "$LDAP_ONLINE_CONF_DIR" -n 0 -l "${LDAP_SHARE_DIR}/slapd.ldif")
     if am_i_root; then
         debug_execute run_as_user "$LDAP_DAEMON_USER" slapadd "${flags[@]}"
@@ -435,7 +447,7 @@ add: olcRootPW
 olcRootPW: $LDAP_ENCRYPTED_CONFIG_ADMIN_PASSWORD
 EOF
     fi
-    debug_execute ldapmodify -Y EXTERNAL -H "ldapi:///" -f "${LDAP_SHARE_DIR}/admin.ldif"
+    debug_execute ldapmodify -Y EXTERNAL -H "${LDAP_IPC_URL}" -f "${LDAP_SHARE_DIR}/admin.ldif"
 }
 
 ########################
@@ -460,7 +472,7 @@ changetype: modify
 add: olcRequires
 olcRequires: authc
 EOF
-    debug_execute ldapmodify -Y EXTERNAL -H "ldapi:///" -f "${LDAP_SHARE_DIR}/disable_anon_bind.ldif"
+    debug_execute ldapmodify -Y EXTERNAL -H "${LDAP_IPC_URL}" -f "${LDAP_SHARE_DIR}/disable_anon_bind.ldif"
 }
 
 ########################
@@ -476,7 +488,7 @@ ldap_add_schemas() {
     info "Adding LDAP extra schemas"
     read -r -a schemas <<< "$(tr ',;' ' ' <<< "${LDAP_EXTRA_SCHEMAS}")"
     for schema in "${schemas[@]}"; do
-        debug_execute ldapadd -Y EXTERNAL -H "ldapi:///" -f "${LDAP_CONF_DIR}/schema/${schema}.ldif"
+        debug_execute ldapadd -Y EXTERNAL -H "${LDAP_IPC_URL}" -f "${LDAP_CONF_DIR}/schema/${schema}.ldif"
     done
 }
 
@@ -587,7 +599,7 @@ member: ${user/#/cn=},${LDAP_USER_OU/#/ou=},${LDAP_ROOT}
 EOF
     done
 
-    debug_execute ldapadd -f "${LDAP_SHARE_DIR}/tree.ldif" -H "ldapi:///" -D "$LDAP_ADMIN_DN" -w "$LDAP_ADMIN_PASSWORD"
+    debug_execute ldapadd -f "${LDAP_SHARE_DIR}/tree.ldif" -H "${LDAP_IPC_URL}" -D "$LDAP_ADMIN_DN" -w "$LDAP_ADMIN_PASSWORD"
 }
 
 ########################
@@ -602,7 +614,7 @@ EOF
 ldap_add_custom_ldifs() {
     info "Loading custom LDIF files..."
     warn "Ignoring LDAP_USERS, LDAP_PASSWORDS, LDAP_USER_OU, LDAP_GROUP_OU and LDAP_GROUP environment variables..."
-    find "$LDAP_CUSTOM_LDIF_DIR" -maxdepth 1 \( -type f -o -type l \) -iname '*.ldif' -print0 | sort -z | xargs --null -I{} bash -c ". /opt/openldap/scripts/libos.sh && debug_execute ldapadd -f {} -H 'ldapi:///' -D \"$LDAP_ADMIN_DN\" -w \"$LDAP_ADMIN_PASSWORD\""
+    find "$LDAP_CUSTOM_LDIF_DIR" -maxdepth 1 \( -type f -o -type l \) -iname '*.ldif' -print0 | sort -z | xargs --null -I{} bash -c ". /opt/openldap/scripts/libos.sh && debug_execute ldapadd -f {} -H \"${LDAP_IPC_URL}\" -D \"$LDAP_ADMIN_DN\" -w \"$LDAP_ADMIN_PASSWORD\""
 }
 
 ########################
@@ -759,7 +771,7 @@ replace: olcTLSDHParamFile
 olcTLSDHParamFile: $LDAP_TLS_DH_PARAMS_FILE
 EOF
     fi
-    debug_execute ldapmodify -Y EXTERNAL -H "ldapi:///" -f "${LDAP_SHARE_DIR}/certs.ldif"
+    debug_execute ldapmodify -Y EXTERNAL -H "${LDAP_IPC_URL}" -f "${LDAP_SHARE_DIR}/certs.ldif"
 }
 
 ########################
@@ -779,7 +791,7 @@ changetype: modify
 add: olcSecurity
 olcSecurity: tls=1
 EOF
-    debug_execute ldapmodify -Y EXTERNAL -H "ldapi:///" -f "${LDAP_SHARE_DIR}/tls_required.ldif"
+    debug_execute ldapmodify -Y EXTERNAL -H "${LDAP_IPC_URL}" -f "${LDAP_SHARE_DIR}/tls_required.ldif"
 }
 
 ########################
@@ -801,7 +813,7 @@ objectClass: olcModuleList
 olcModulePath: $1
 olcModuleLoad: $2
 EOF
-    debug_execute ldapadd -Y EXTERNAL -H "ldapi:///" -f "${LDAP_SHARE_DIR}/enable_module_$2.ldif"
+    debug_execute ldapadd -Y EXTERNAL -H "${LDAP_IPC_URL}" -f "${LDAP_SHARE_DIR}/enable_module_$2.ldif"
 }
 
 ########################
@@ -823,7 +835,7 @@ objectClass: olcOverlayConfig
 objectClass: olcPPolicyConfig
 olcOverlay: {0}ppolicy
 EOF
-    debug_execute ldapadd -Q -Y EXTERNAL -H "ldapi:///" -f "${LDAP_SHARE_DIR}/ppolicy_create_configuration.ldif"
+    debug_execute ldapadd -Q -Y EXTERNAL -H "${LDAP_IPC_URL}" -f "${LDAP_SHARE_DIR}/ppolicy_create_configuration.ldif"
     # enable ppolicy_hash_cleartext
     if is_boolean_yes "$LDAP_PPOLICY_HASH_CLEARTEXT"; then
         info "Enabling ppolicy_hash_cleartext"
@@ -833,7 +845,7 @@ changetype: modify
 add: olcPPolicyHashCleartext
 olcPPolicyHashCleartext: TRUE
 EOF
-    debug_execute ldapmodify -Q -Y EXTERNAL -H "ldapi:///" -f "${LDAP_SHARE_DIR}/ppolicy_configuration_hash_cleartext.ldif"
+    debug_execute ldapmodify -Q -Y EXTERNAL -H "${LDAP_IPC_URL}" -f "${LDAP_SHARE_DIR}/ppolicy_configuration_hash_cleartext.ldif"
     fi
     # enable ppolicy_use_lockout
     if is_boolean_yes "$LDAP_PPOLICY_USE_LOCKOUT"; then
@@ -844,7 +856,7 @@ changetype: modify
 add: olcPPolicyUseLockout
 olcPPolicyUseLockout: TRUE
 EOF
-        debug_execute ldapmodify -Q -Y EXTERNAL -H "ldapi:///" -f "${LDAP_SHARE_DIR}/ppolicy_configuration_use_lockout.ldif"
+        debug_execute ldapmodify -Q -Y EXTERNAL -H "${LDAP_IPC_URL}" -f "${LDAP_SHARE_DIR}/ppolicy_configuration_use_lockout.ldif"
     fi
 }
 
@@ -865,7 +877,7 @@ changetype: modify
 add: olcPasswordHash
 olcPasswordHash: $LDAP_PASSWORD_HASH
 EOF
-    debug_execute ldapmodify -Y EXTERNAL -H "ldapi:///" -f "${LDAP_SHARE_DIR}/password_hash.ldif"
+    debug_execute ldapmodify -Y EXTERNAL -H "${LDAP_IPC_URL}" -f "${LDAP_SHARE_DIR}/password_hash.ldif"
 }
 
 ########################
@@ -889,7 +901,7 @@ olcDbIndex: entryCSN eq
 add: olcDbIndex
 olcDbIndex: entryUUID eq
 EOF
-    debug_execute ldapmodify -Y EXTERNAL -H "ldapi:///" -f "${LDAP_SHARE_DIR}/accesslog_add_indexes.ldif"
+    debug_execute ldapmodify -Y EXTERNAL -H "${LDAP_IPC_URL}" -f "${LDAP_SHARE_DIR}/accesslog_add_indexes.ldif"
     # Load module
     ldap_load_module "/usr/lib/openldap" "accesslog.so"
     # Create AccessLog database
@@ -906,7 +918,7 @@ olcDbIndex: default eq
 olcDbIndex: entryCSN,objectClass,reqEnd,reqResult,reqStart
 EOF
     mkdir $LDAP_ACCESSLOG_DATA_DIR
-    debug_execute ldapadd -Q -Y EXTERNAL -H "ldapi:///" -f "${LDAP_SHARE_DIR}/accesslog_create_accesslog_database.ldif"
+    debug_execute ldapadd -Q -Y EXTERNAL -H "${LDAP_IPC_URL}" -f "${LDAP_SHARE_DIR}/accesslog_create_accesslog_database.ldif"
     # Add AccessLog overlay
     cat > "${LDAP_SHARE_DIR}/accesslog_create_overlay_configuration.ldif" << EOF
 dn: olcOverlay=accesslog,olcDatabase={2}mdb,cn=config
@@ -921,7 +933,7 @@ olcAccessLogOld: $LDAP_ACCESSLOG_LOGOLD
 olcAccessLogOldAttr: $LDAP_ACCESSLOG_LOGOLDATTR
 EOF
     info "adding accesslog_create_overlay_configuration.ldif"
-    debug_execute ldapadd -Q -Y EXTERNAL -H "ldapi:///" -f "${LDAP_SHARE_DIR}/accesslog_create_overlay_configuration.ldif"
+    debug_execute ldapadd -Q -Y EXTERNAL -H "${LDAP_IPC_URL}" -f "${LDAP_SHARE_DIR}/accesslog_create_overlay_configuration.ldif"
 }
 
 ########################
@@ -946,5 +958,5 @@ olcOverlay: syncprov
 olcSpCheckpoint: $LDAP_SYNCPROV_CHECKPPOINT
 olcSpSessionLog: $LDAP_SYNCPROV_SESSIONLOG
 EOF
-    debug_execute ldapadd -Q -Y EXTERNAL -H "ldapi:///" -f "${LDAP_SHARE_DIR}/syncprov_create_overlay_configuration.ldif"
+    debug_execute ldapadd -Q -Y EXTERNAL -H "${LDAP_IPC_URL}" -f "${LDAP_SHARE_DIR}/syncprov_create_overlay_configuration.ldif"
 }

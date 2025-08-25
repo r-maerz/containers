@@ -34,7 +34,7 @@ flags_map["-F"]="${LDAP_CONF_DIR}/slapd.d"
 flags_map["-d"]="${LDAP_LOGLEVEL}"
 
 # The LDAP IPC is always on
-flags_map["-h"]+="${flags_map["-h"]:+" "}ldapi:///"
+flags_map["-h"]+="${flags_map["-h"]:+" "}${LDAP_IPC_URL}"
 
 # Add LDAP URI
 # Since 'proxied LDAP' default port number is same as 'LDAP',
