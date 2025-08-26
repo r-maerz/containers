@@ -3,8 +3,8 @@
 
 FROM alpine:3.22
 
-LABEL Maintainer="Robert Maerz <jh@localhost>" \
-      Description="OpenLDAP based on Alpine Linux and Bitnami scripts."
+LABEL Maintainer="Robert Maerz <171489683+r-maerz@users.noreply.github.com>" \
+      Description="OpenLDAP on Alpine Linux with Bitnami scripts."
 
 ADD https://r-maerz.github.io/alpine-packages/r-maerz.rsa.pub /etc/apk/keys/r-maerz.rsa.pub
 RUN apk update && apk upgrade && apk add --no-cache bash
@@ -19,8 +19,6 @@ RUN find / -perm /6000 -type f -exec chmod a-s {} \; || true
 
 COPY rootfs /
 RUN /opt/openldap/scripts/openldap/postunpack.sh
-
-RUN mkdir -p /usr/share/openldap /var/lib/openldap/run && chmod -R 775 /usr/share/openldap /var/lib/openldap/run && chown -R ldap:ldap /usr/share/openldap /var/lib/openldap/run /etc/openldap/slapd.ldif
 
 EXPOSE 1389 1636
 

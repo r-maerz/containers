@@ -16,14 +16,14 @@ set -o pipefail
 # Load LDAP environment variables
 eval "$(ldap_env)"
 
-# Ensure non-root user has write permissions on a set of directories
-for dir in "$LDAP_SHARE_DIR" "$LDAP_DATA_DIR" "$LDAP_ONLINE_CONF_DIR" "${LDAP_VAR_DIR}" "/docker-entrypoint-initdb.d"; do
-    ensure_dir_exists "$dir"
+# Ensure non-root user has write permissions on a set of directories and files
+for dir in "$LDAP_SHARE_DIR" "$LDAP_DATA_DIR" "$LDAP_ONLINE_CONF_DIR" "${LDAP_VAR_DIR}" "${LDAP_RUN_DIR}" "/docker-entrypoint-initdb.d"; do
+    ensure_dir_exists "$dir" "${LDAP_DAEMON_USER}"
     chmod -R g+rwX "$dir"
 done
 
-# Symlinks to normalize directories
-# ln -sf "$LDAP_ONLINE_CONF_DIR" "${LDAP_CONF_DIR}/slapd.d"
-# ln -sf "$LDAP_DATA_DIR" "${LDAP_VAR_DIR}/data"
+if [ -f "/etc/openldap/slapd.ldif" ]; then
+  owned_by "/etc/openldap/slapd.ldif" "${LDAP_DAEMON_USER}"
+fi
 
 setcap CAP_NET_BIND_SERVICE=+eip /usr/sbin/slapd

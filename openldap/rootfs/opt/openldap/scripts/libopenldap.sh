@@ -26,7 +26,7 @@
 ldap_env() {
     cat << "EOF"
 # Paths
-export LDAP_BASE_DIR="/opt/openldap/openldap"
+export LDAP_BASE_DIR="/opt/openldap"
 export LDAP_BIN_DIR="/usr/bin"
 export LDAP_SBIN_DIR="/usr/sbin"
 export LDAP_CONF_DIR="/etc/openldap"
@@ -34,8 +34,9 @@ export LDAP_SHARE_DIR="/usr/share/openldap"
 export LDAP_VAR_DIR="/var/lib/openldap"
 export LDAP_DATA_DIR="${LDAP_VAR_DIR}/openldap-data"
 export LDAP_ACCESSLOG_DATA_DIR="${LDAP_DATA_DIR}/accesslog"
-export LDAP_ONLINE_CONF_DIR="/etc/openldap/slapd.d"
-export LDAP_PID_FILE="/run/openldap/slapd.pid"
+export LDAP_ONLINE_CONF_DIR="${LDAP_VAR_DIR}/slapd.d"
+export LDAP_RUN_DIR="/run/openldap"
+export LDAP_PID_FILE="${LDAP_RUN_DIR}/slapd.pid"
 export LDAP_IPC_URL="ldapi:///"
 export LDAP_CUSTOM_LDIF_DIR="${LDAP_CUSTOM_LDIF_DIR:-/ldifs}"
 export LDAP_CUSTOM_SCHEMA_FILE="${LDAP_CUSTOM_SCHEMA_FILE:-/schema/custom.ldif}"
@@ -68,7 +69,7 @@ export LDAP_ADD_SCHEMAS="${LDAP_ADD_SCHEMAS:-yes}"
 export LDAP_EXTRA_SCHEMAS="${LDAP_EXTRA_SCHEMAS:-cosine,inetorgperson,nis}"
 export LDAP_SKIP_DEFAULT_TREE="${LDAP_SKIP_DEFAULT_TREE:-no}"
 export LDAP_USERS="${LDAP_USERS:-user01,user02}"
-export LDAP_PASSWORDS="${LDAP_PASSWORDS:-bitnami1,bitnami2}"
+export LDAP_PASSWORDS="${LDAP_PASSWORDS:-openldap1,openldap2}"
 export LDAP_USER_DC="${LDAP_USER_DC:-}"
 export LDAP_USER_OU="${LDAP_USER_OU:-${LDAP_USER_DC:-users}}"
 export LDAP_GROUP_OU="${LDAP_GROUP_OU:-${LDAP_USER_DC:-groups}}"
@@ -237,7 +238,7 @@ is_ldap_not_running() {
 ldap_start_bg() {
     local -r retries="${1:-12}"
     local -r sleep_time="${2:-1}"
-    local -a flags=("-h" "ldap://:${LDAP_PORT_NUMBER}/ ${LDAP_IPC_URL}" "-F" "${LDAP_CONF_DIR}/slapd.d" "-d" "$LDAP_LOGLEVEL")
+    local -a flags=("-h" "ldap://:${LDAP_PORT_NUMBER}/ ${LDAP_IPC_URL}" "-F" "${LDAP_ONLINE_CONF_DIR}" "-d" "$LDAP_LOGLEVEL")
 
     if is_ldap_not_running; then
         info "Starting OpenLDAP server in background"

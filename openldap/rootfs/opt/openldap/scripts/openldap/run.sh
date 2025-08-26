@@ -28,7 +28,7 @@ declare -A flags_map
 am_i_root && flags_map["-u"]="${LDAP_DAEMON_USER}"
 
 # Set config dir
-flags_map["-F"]="${LDAP_CONF_DIR}/slapd.d"
+flags_map["-F"]="${LDAP_ONLINE_CONF_DIR}"
 
 # Enable debug with desired level
 flags_map["-d"]="${LDAP_LOGLEVEL}"
