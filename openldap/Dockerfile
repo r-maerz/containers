@@ -9,6 +9,9 @@ LABEL Maintainer="Robert Maerz <171489683+r-maerz@users.noreply.github.com>" \
 ADD https://r-maerz.github.io/alpine-packages/r-maerz.rsa.pub /etc/apk/keys/r-maerz.rsa.pub
 RUN apk update && apk upgrade && apk add --no-cache bash
 
+RUN addgroup -S -g 102 ldap 2>/dev/null && \
+    adduser -S -D -H -h /usr/lib/openldap -s /sbin/nologin -G ldap -g "OpenLdap User" -u 101 ldap 2>/dev/null
+
 COPY prebuildfs /
 SHELL ["/bin/bash", "-o", "errexit", "-o", "nounset", "-o", "pipefail", "-c"]
 RUN install_packages shadow libcap-setcap ca-certificates
