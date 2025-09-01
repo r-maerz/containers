@@ -521,7 +521,7 @@ ldap_add_custom_schema() {
 #########################
 ldap_add_custom_schemas() {
     info "Adding custom schemas : $LDAP_CUSTOM_SCHEMA_DIR ..."
-    find "$LDAP_CUSTOM_SCHEMA_DIR" -maxdepth 1 \( -type f -o -type l \) -iname '*.ldif' -print0 | sort -z | xargs --null -I{} bash -c ". /opt/openldap/scripts/libos.sh && debug_execute slapadd -F \"$LDAP_ONLINE_CONF_DIR\" -n 0 -l {}"
+    find "$LDAP_CUSTOM_SCHEMA_DIR" -maxdepth 1 \( -type f -o -type l \) -iname '*.ldif' -print0 | sort -z | xargs -0 -I{} bash -c ". /opt/openldap/scripts/libos.sh && debug_execute slapadd -F \"$LDAP_ONLINE_CONF_DIR\" -n 0 -l {}"
     ldap_stop
     while is_ldap_running; do sleep 1; done
     ldap_start_bg
@@ -615,7 +615,7 @@ EOF
 ldap_add_custom_ldifs() {
     info "Loading custom LDIF files..."
     warn "Ignoring LDAP_USERS, LDAP_PASSWORDS, LDAP_USER_OU, LDAP_GROUP_OU and LDAP_GROUP environment variables..."
-    find "$LDAP_CUSTOM_LDIF_DIR" -maxdepth 1 \( -type f -o -type l \) -iname '*.ldif' -print0 | sort -z | xargs --null -I{} bash -c ". /opt/openldap/scripts/libos.sh && debug_execute ldapadd -f {} -H \"${LDAP_IPC_URL}\" -D \"$LDAP_ADMIN_DN\" -w \"$LDAP_ADMIN_PASSWORD\""
+    find "$LDAP_CUSTOM_LDIF_DIR" -maxdepth 1 \( -type f -o -type l \) -iname '*.ldif' -print0 | sort -z | xargs -0 -I{} bash -c ". /opt/openldap/scripts/libos.sh && debug_execute ldapadd -f {} -H \"${LDAP_IPC_URL}\" -D \"$LDAP_ADMIN_DN\" -w \"$LDAP_ADMIN_PASSWORD\""
 }
 
 ########################
